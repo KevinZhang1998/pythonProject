@@ -1,0 +1,94 @@
+import requests
+from bs4 import BeautifulSoup
+from selenium import webdriver
+
+
+def get_web_page(page_link):
+    driver = webdriver.Chrome(executable_path='C:\\Users\\wzhang197\\Documents\\chromedriver.exe')
+    driver.get(page_link)
+    return driver.page_source
+    if "抱歉，你访问的页面不存在！" or "已退市" in driver.page_source:
+        return False
+    else:
+        return False
+
+def parse_web_page(html):
+    # pattern = re.compile("r'<tr>([\s\S]*)</tr>'")
+    soup = BeautifulSoup(html, 'lxml')
+    dom = soup.find("tbody", attrs={"id": "cwzbDataBox"})
+    return parse_Post_web_page(dom)
+
+
+def parse_Post_web_page(post_html):
+    container = []
+    doms = post_html.find_all("tr")
+    for i in range(0, 3):
+        content = str(doms[i].text).split(" ")
+        while '' in content:
+            content.remove('')
+        for j in range(len(content)):
+            if ('亿' in content[j]):
+                content[j] = float(content[j].replace('亿', "")) * 100000000
+        # 将每一列的内容加入到主container中
+        container.append(content)
+        # print(content)
+    four_attr = doms[3].find_all("p")
+    for i in range(len(four_attr)):
+        four_attr[i] = str(four_attr[i]).replace("<p>", "").replace("</p>", "").replace(" ", "")
+    # four_attr.insert(0, "四分位属性")
+    container.append(four_attr)
+    return container
+
+
+def writeToFile(container, filename):
+    title = ['Total Market Value', 'Net Assets', 'Net Profit', 'P/E Ratio', 'P/B Ratio', 'Gross Margin',
+             'Net Interest Rate', 'ROE']
+    subtitle = ['gegu', 'hangye', 'paiming', 'bijiao']
+    csvfile = open(filename + '.csv', 'w', encoding='gbk')
+
+    for i in range(0, 4):
+        # 处理第一行的字符串问题
+        # 第一个字符串空格的问题需要处理，不是所有的字符中间都是有空格的。
+        if i == 0:
+            if isinstance(container[0][1], str):
+                container[0][0] = str(container[0][0]) + str(container[0][1])
+                container[0].pop(1)
+            for item in subtitle:
+                for j in title:
+                    csvfile.write(item + j + ",")
+            csvfile.write("\n")
+
+        if i < 3:
+            for j in range(len(container[i])):
+                if j == 0:
+                    continue
+                csvfile.write(str(container[i][j]) + ",")
+        if i == 3:
+            for j in container[i]:
+                csvfile.write(changeCharacter(j) + ",")
+                print(changeCharacter(j))
+    csvfile.close()
+    print("数据导出成功")
+
+
+def changeCharacter(char):
+    if char == '高' or char == '较高':
+        return "high"
+    elif char == '中':
+        return "mid"
+    elif char == '低' or "较低":
+        return "low"
+
+
+if __name__ == '__main__':
+    CompanyCode = str(input("股票代码(sh100100): "))
+    filename = str(input("另存为文件名: "))
+    # CompanyCode = "000002"
+    # 爬取地址 http://quote.eastmoney.com/sz000001.html
+    page_link = "http://quote.eastmoney.com/" + CompanyCode + ".html"
+    html = get_web_page(page_link)
+    if html == False:
+        print('输入的股票代码有误')
+    else:
+        content = parse_web_page(html)
+        writeToFile(content, filename)
