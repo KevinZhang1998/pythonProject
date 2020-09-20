@@ -1,0 +1,42 @@
+(1)配置Swap 虚拟内存
+	ls -lh /swapfile	使用swapon命令可以检查系统是否已经配置过swap，这是一个通用的swap工具。使用-s标签可列出当前存储设备上的swap使用情况：
+
+	free -m
+	sudo fallocate -l 4G /swapfile	创建swap文件
+	sudo chmod 700 /swapfile	启动swap文件
+	sudo mkswap /swapfile	告知系统将该文件用于swap
+	sudo swapon /swapfile	这个swap文件就可以作为swap空间使用了
+	swapon -s	输入如下命令来确认一下设置是否已经生效
+	sudo nano /etc/fstab	使Swap文件永久生效 这是一个管理文件系统和分区的表
+        	/swapfile   swap    swap    sw  0   0	在文件末尾加入下面这行内容，告诉操作系统自动使用刚才创建的swap文件
+
+(2)创建docker镜像并双开
+	docker pull centos
+	//打包容器
+	docker run --name prototype -p 80:80 -v /home/ec2-user/app:/web centos 
+	docker run -t -d centos  可以阻止容器退出
+	docker exec -it prototype bash //进入容器内，将二进制文件存入
+	docker commit prototype 
+	docker tag id-1111 webserver
+
+	//运行打包的容器
+	docker run --name web1 -p 80:80 -v /home/ec2-user/:/web -d webserver /web/ws-aus-day1.bin-489229 -config /web/server.ini
+	docker run --name web2 -p 800:80 -v /home/ec2-user/:/web -d webserver /web/ws-aus-day1.bin-489229 -config /web/server.ini
+
+	* 注意在打包镜像的主机中没有web1和web2，或者不要给名字	
+
+（3）提交refund
+	#!/bin/bash
+	GAME_ID='TEST'
+	TEAM_ID='TEST'
+	while read line;
+        do
+          	UUID=$line
+            REQ_RESP=`curl -i -H "Accept: application/json" -X POST -d '{"game":"'"$GAME_ID"'", "team":"'"$TEAM_ID"'", "order":"'"$UUID"'"}' https://stats.aws.dev-null.link/proc/refund`
+        done <  (cat /home/ec2-user/logs/app_logs | egrep -ao "\w{8}-\w{4}-.*" | sort -t: -u) 
+
+（4）挂在efs
+	nano /etc/fstab
+	fs-d8e7f2f9:/ /home/ec2-user/logs/ efs _netdev 0 0 
+	Mount -a
+
